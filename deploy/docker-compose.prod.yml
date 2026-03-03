@@ -1,0 +1,20 @@
+services:
+  buggy-api:
+    image: ghcr.io/hans1run/buggy-api:latest
+    environment:
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - Auth0__Domain=${AUTH0_DOMAIN}
+      - Auth0__Audience=${AUTH0_AUDIENCE}
+      - Auth0__AllowedUserId=${AUTH0_ALLOWED_USER_ID}
+      - Storage__Endpoint=${MINIO_ENDPOINT}
+      - Storage__AccessKey=${MINIO_ACCESS_KEY}
+      - Storage__SecretKey=${MINIO_SECRET_KEY}
+      - Storage__BucketName=buggy-attachments
+      - Storage__UseSSL=${MINIO_USE_SSL:-false}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  buggy-frontend:
+    image: ghcr.io/hans1run/buggy-frontend:latest
+    restart: unless-stopped
