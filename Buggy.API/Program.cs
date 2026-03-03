@@ -1,3 +1,7 @@
+using Buggy.API.Data;
+using Buggy.API.Extensions;
+using Buggy.API.Services;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +26,9 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
+builder.Services.AddDbContext<BuggyDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -36,7 +43,20 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddAuth0Authentication(builder.Configuration);
+builder.Services.AddBlobStorageService(builder.Configuration);
+builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IBacklogItemService, BacklogItemService>();
+builder.Services.AddScoped<ICommentService, CommentService>();
+
 var app = builder.Build();
+
+// Auto-migrate on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<BuggyDbContext>();
+    db.Database.Migrate();
+}
 
 if (app.Environment.IsDevelopment())
 {
