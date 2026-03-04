@@ -8,7 +8,7 @@ RUN dotnet publish -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
-RUN adduser --disabled-password --gecos "" appuser
+RUN useradd --no-create-home --shell /bin/false appuser
 RUN mkdir -p /app/logs && chown -R appuser:appuser /app/logs
 COPY --from=build /app/publish .
 ENV ASPNETCORE_ENVIRONMENT=Production
