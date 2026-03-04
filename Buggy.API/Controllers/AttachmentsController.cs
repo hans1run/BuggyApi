@@ -49,4 +49,14 @@ public class AttachmentsController : ControllerBase
         var url = await _service.GetPresignedUrlAsync(id);
         return url == null ? NotFound() : Ok(new { url });
     }
+
+    [HttpGet("api/attachments/{id:guid}/download")]
+    public async Task<IActionResult> Download(Guid id)
+    {
+        var result = await _service.DownloadAsync(id);
+        if (result == null) return NotFound();
+
+        var (stream, contentType, fileName) = result.Value;
+        return File(stream, contentType, fileName);
+    }
 }

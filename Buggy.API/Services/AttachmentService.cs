@@ -69,4 +69,13 @@ public class AttachmentService : IAttachmentService
 
         return await _storage.GetPresignedUrlAsync(attachment.BlobName);
     }
+
+    public async Task<(Stream Stream, string ContentType, string FileName)?> DownloadAsync(Guid attachmentId)
+    {
+        var attachment = await _db.Attachments.FindAsync(attachmentId);
+        if (attachment == null) return null;
+
+        var stream = await _storage.DownloadAsync(attachment.BlobName);
+        return (stream, attachment.ContentType, attachment.FileName);
+    }
 }
