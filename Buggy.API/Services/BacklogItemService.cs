@@ -116,6 +116,8 @@ public class BacklogItemService : IBacklogItemService
     public async Task<BacklogItemDto?> UpdateStatusAsync(Guid projectId, int itemNumber, UpdateStatusDto dto)
     {
         var item = await _db.BacklogItems
+            .Include(b => b.Comments)
+            .Include(b => b.Attachments)
             .FirstOrDefaultAsync(b => b.ProjectId == projectId && b.ItemNumber == itemNumber);
         if (item == null) return null;
 
