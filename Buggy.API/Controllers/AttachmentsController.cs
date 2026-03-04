@@ -25,6 +25,7 @@ public class AttachmentsController : ControllerBase
         Ok(await _service.GetByItemAsync(itemId));
 
     [HttpPost("api/items/{itemId:guid}/attachments")]
+    [Authorize(Policy = "ApiKeyOrSingleUser")]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<ActionResult<AttachmentDto>> Upload(Guid itemId, IFormFile file)
     {

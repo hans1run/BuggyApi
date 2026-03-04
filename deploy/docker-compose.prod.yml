@@ -14,6 +14,7 @@ services:
       - Storage__SecretKey=${MINIO_SECRET_KEY}
       - Storage__BucketName=buggy-attachments
       - Storage__UseSSL=false
+      - ApiKey__Key=${BUGGY_API_KEY}
     volumes:
       - api_logs:/app/logs
     depends_on:
