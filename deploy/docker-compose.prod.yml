@@ -1,20 +1,83 @@
 services:
-  buggy-api:
-    image: ghcr.io/hans1run/buggy-api:latest
+  api:
+    image: ghcr.io/hans1run/buggyapi:latest
+    container_name: buggy-api
+    restart: unless-stopped
     environment:
-      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=buggy-postgres;Port=5432;Database=buggy;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       - Auth0__Domain=${AUTH0_DOMAIN}
       - Auth0__Audience=${AUTH0_AUDIENCE}
       - Auth0__AllowedUserId=${AUTH0_ALLOWED_USER_ID}
-      - Storage__Endpoint=${MINIO_ENDPOINT}
+      - Storage__Endpoint=buggy-minio:9000
       - Storage__AccessKey=${MINIO_ACCESS_KEY}
       - Storage__SecretKey=${MINIO_SECRET_KEY}
       - Storage__BucketName=buggy-attachments
-      - Storage__UseSSL=${MINIO_USE_SSL:-false}
+      - Storage__UseSSL=false
     volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
+      - api_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - buggy
+      - shared
 
-  buggy-frontend:
-    image: ghcr.io/hans1run/buggy-frontend:latest
+  frontend:
+    image: ghcr.io/hans1run/buggy:latest
+    container_name: buggy-frontend
     restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - buggy
+      - shared
+
+  postgres:
+    image: postgres:16
+    container_name: buggy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: buggy
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d buggy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - buggy
+
+  minio:
+    image: minio/minio
+    container_name: buggy-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - buggy
+
+volumes:
+  postgres_data:
+  minio_data:
+  api_logs:
+
+networks:
+  buggy:
+  shared:
+    external: true
+    name: shared-proxy

@@ -5,6 +5,8 @@ namespace Buggy.API.Extensions;
 
 public static class AuthExtensions
 {
+    public const string ApiKeyScheme = "ApiKey";
+
     public static IServiceCollection AddAuth0Authentication(
         this IServiceCollection services, IConfiguration configuration)
     {
@@ -17,15 +19,18 @@ public static class AuthExtensions
             {
                 options.Authority = $"https://{domain}/";
                 options.Audience = audience;
+                options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
                     ValidIssuer = $"https://{domain}/",
                     ValidateAudience = true,
                     ValidAudience = audience,
-                    ValidateLifetime = true
+                    ValidateLifetime = true,
+                    NameClaimType = "sub"
                 };
-            });
+            })
+            .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(ApiKeyScheme, _ => { });
 
         services.AddAuthorization(options =>
         {
@@ -35,6 +40,17 @@ public static class AuthExtensions
                     var sub = context.User.FindFirst("sub")?.Value;
                     return sub == allowedUserId;
                 }));
+
+            // Allows either Auth0 JWT (SingleUser) or API key
+            options.AddPolicy("ApiKeyOrSingleUser", policy =>
+            {
+                policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme, ApiKeyScheme);
+                policy.RequireAssertion(context =>
+                {
+                    var sub = context.User.FindFirst("sub")?.Value;
+                    return sub == allowedUserId;
+                });
+            });
         });
 
         return services;

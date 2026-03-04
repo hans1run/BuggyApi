@@ -50,9 +50,13 @@ public class BacklogItemService : IBacklogItemService
             throw new ArgumentException("Project not found");
 
         // Atomic increment to prevent race conditions on concurrent item creation
-        var newItemNumber = await _db.Database.SqlQueryRaw<int>(
-            """UPDATE "Projects" SET "ItemCounter" = "ItemCounter" + 1 WHERE "Id" = {0} RETURNING "ItemCounter" """,
-            projectId).SingleAsync();
+        await _db.Database.ExecuteSqlRawAsync(
+            """UPDATE "Projects" SET "ItemCounter" = "ItemCounter" + 1 WHERE "Id" = {0}""",
+            projectId);
+        var newItemNumber = await _db.Projects
+            .Where(p => p.Id == projectId)
+            .Select(p => p.ItemCounter)
+            .SingleAsync();
 
         BacklogItem item = dto.Type switch
         {
@@ -92,6 +96,20 @@ public class BacklogItemService : IBacklogItemService
         item.UpdatedDate = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+
+        // EF Core doesn't allow changing the TPH discriminator on a tracked entity,
+        // so update via raw SQL when the type changes.
+        if (item.Type != dto.Type)
+        {
+            await _db.Database.ExecuteSqlRawAsync(
+                """UPDATE "BacklogItems" SET "Type" = {0} WHERE "Id" = {1}""",
+                (int)dto.Type, item.Id);
+
+            // Detach and reload so the returned DTO reflects the new type
+            _db.Entry(item).State = EntityState.Detached;
+            item = await _db.BacklogItems.FirstAsync(b => b.Id == item.Id);
+        }
+
         return ToDto(item);
     }
 

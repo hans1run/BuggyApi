@@ -28,6 +28,7 @@ public class BacklogItemsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "ApiKeyOrSingleUser")]
     public async Task<ActionResult<BacklogItemDto>> Create(Guid projectId, CreateBacklogItemDto dto)
     {
         var createdBy = User.FindFirst("sub")?.Value ?? "unknown";

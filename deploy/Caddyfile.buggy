@@ -1,0 +1,13 @@
+buggy.wplan.no {
+	handle /api/* {
+		reverse_proxy buggy-api:8080
+	}
+
+	handle /health {
+		reverse_proxy buggy-api:8080
+	}
+
+	handle {
+		reverse_proxy buggy-frontend:80
+	}
+}
