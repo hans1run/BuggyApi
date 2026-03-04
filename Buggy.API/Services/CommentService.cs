@@ -20,8 +20,11 @@ public class CommentService : ICommentService
             .ToListAsync();
     }
 
-    public async Task<CommentDto> CreateAsync(Guid backlogItemId, CreateCommentDto dto, string createdBy)
+    public async Task<CommentDto?> CreateAsync(Guid backlogItemId, CreateCommentDto dto, string createdBy)
     {
+        var itemExists = await _db.BacklogItems.AnyAsync(b => b.Id == backlogItemId);
+        if (!itemExists) return null;
+
         var comment = new Comment
         {
             Id = Guid.NewGuid(),

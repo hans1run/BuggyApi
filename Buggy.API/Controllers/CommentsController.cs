@@ -22,6 +22,7 @@ public class CommentsController : ControllerBase
     public async Task<ActionResult<CommentDto>> Create(Guid itemId, CreateCommentDto dto)
     {
         var createdBy = User.FindFirst("sub")?.Value ?? "unknown";
-        return Ok(await _service.CreateAsync(itemId, dto, createdBy));
+        var comment = await _service.CreateAsync(itemId, dto, createdBy);
+        return comment == null ? NotFound() : Ok(comment);
     }
 }

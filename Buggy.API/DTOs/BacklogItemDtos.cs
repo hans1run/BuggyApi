@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Buggy.API.Models;
 
 namespace Buggy.API.DTOs;
@@ -9,11 +10,14 @@ public record BacklogItemDto(
     bool IsArchived, List<string> Tags, int CommentCount, int AttachmentCount);
 
 public record CreateBacklogItemDto(
-    BacklogItemType Type, string Title, string? Description,
+    BacklogItemType Type,
+    [property: Required, MaxLength(200)] string Title,
+    [property: MaxLength(4000)] string? Description,
     Priority Priority, BacklogItemStatus Status, string? AssignedTo, List<string>? Tags);
 
 public record UpdateBacklogItemDto(
-    string Title, string? Description, Priority Priority,
-    string? AssignedTo, List<string>? Tags);
+    [property: Required, MaxLength(200)] string Title,
+    [property: MaxLength(4000)] string? Description,
+    Priority Priority, string? AssignedTo, List<string>? Tags);
 
 public record UpdateStatusDto(BacklogItemStatus Status);

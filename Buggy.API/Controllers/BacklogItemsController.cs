@@ -52,4 +52,15 @@ public class BacklogItemsController : ControllerBase
     [HttpPut("{itemNumber:int}/archive")]
     public async Task<IActionResult> Archive(Guid projectId, int itemNumber) =>
         await _service.ArchiveAsync(projectId, itemNumber) ? NoContent() : NotFound();
+
+    [HttpGet("archived")]
+    public async Task<ActionResult<List<BacklogItemDto>>> GetArchived(Guid projectId) =>
+        Ok(await _service.GetArchivedByProjectAsync(projectId));
+
+    [HttpPut("{itemNumber:int}/unarchive")]
+    public async Task<ActionResult<BacklogItemDto>> Unarchive(Guid projectId, int itemNumber)
+    {
+        var item = await _service.UnarchiveAsync(projectId, itemNumber);
+        return item == null ? NotFound() : Ok(item);
+    }
 }

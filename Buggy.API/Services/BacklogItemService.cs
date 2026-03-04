@@ -16,19 +16,23 @@ public class BacklogItemService : IBacklogItemService
         Guid projectId, BacklogItemType? type = null, Priority? priority = null)
     {
         var query = _db.BacklogItems
-            .Include(b => b.Comments)
-            .Include(b => b.Attachments)
             .Where(b => b.ProjectId == projectId && !b.IsArchived);
 
         if (type.HasValue) query = query.Where(b => b.Type == type.Value);
         if (priority.HasValue) query = query.Where(b => b.Priority == priority.Value);
 
-        var items = await query
+        return await query
             .OrderByDescending(b => b.Priority)
             .ThenBy(b => b.CreatedDate)
+            .Select(b => new BacklogItemDto(
+                b.Id, b.ProjectId, b.ItemNumber, b.Type,
+                b.Title, b.Description, b.Priority, b.Status,
+                b.AssignedTo, b.CreatedBy, b.CreatedDate, b.UpdatedDate,
+                b.IsArchived,
+                string.IsNullOrEmpty(b.Tags) ? new List<string>() : JsonSerializer.Deserialize<List<string>>(b.Tags)!,
+                b.Comments.Count,
+                b.Attachments.Count))
             .ToListAsync();
-
-        return items.Select(ToDto).ToList();
     }
 
     public async Task<BacklogItemDto?> GetByNumberAsync(Guid projectId, int itemNumber)
@@ -42,10 +46,13 @@ public class BacklogItemService : IBacklogItemService
 
     public async Task<BacklogItemDto> CreateAsync(Guid projectId, CreateBacklogItemDto dto, string createdBy)
     {
-        var project = await _db.Projects.FindAsync(projectId)
-            ?? throw new ArgumentException("Project not found");
+        if (!await _db.Projects.AnyAsync(p => p.Id == projectId))
+            throw new ArgumentException("Project not found");
 
-        project.ItemCounter++;
+        // Atomic increment to prevent race conditions on concurrent item creation
+        var newItemNumber = await _db.Database.SqlQueryRaw<int>(
+            """UPDATE "Projects" SET "ItemCounter" = "ItemCounter" + 1 WHERE "Id" = {0} RETURNING "ItemCounter" """,
+            projectId).SingleAsync();
 
         BacklogItem item = dto.Type switch
         {
@@ -57,7 +64,7 @@ public class BacklogItemService : IBacklogItemService
 
         item.Id = Guid.NewGuid();
         item.ProjectId = projectId;
-        item.ItemNumber = project.ItemCounter;
+        item.ItemNumber = newItemNumber;
         item.Title = dto.Title;
         item.Description = dto.Description;
         item.Priority = dto.Priority;
@@ -110,6 +117,35 @@ public class BacklogItemService : IBacklogItemService
         item.UpdatedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<List<BacklogItemDto>> GetArchivedByProjectAsync(Guid projectId)
+    {
+        return await _db.BacklogItems
+            .Where(b => b.ProjectId == projectId && b.IsArchived)
+            .OrderByDescending(b => b.UpdatedDate ?? b.CreatedDate)
+            .Select(b => new BacklogItemDto(
+                b.Id, b.ProjectId, b.ItemNumber, b.Type,
+                b.Title, b.Description, b.Priority, b.Status,
+                b.AssignedTo, b.CreatedBy, b.CreatedDate, b.UpdatedDate,
+                b.IsArchived,
+                string.IsNullOrEmpty(b.Tags) ? new List<string>() : JsonSerializer.Deserialize<List<string>>(b.Tags)!,
+                b.Comments.Count,
+                b.Attachments.Count))
+            .ToListAsync();
+    }
+
+    public async Task<BacklogItemDto?> UnarchiveAsync(Guid projectId, int itemNumber)
+    {
+        var item = await _db.BacklogItems
+            .FirstOrDefaultAsync(b => b.ProjectId == projectId && b.ItemNumber == itemNumber);
+        if (item == null) return null;
+
+        item.IsArchived = false;
+        item.Status = BacklogItemStatus.Backlog;
+        item.UpdatedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return ToDto(item);
     }
 
     private static BacklogItemDto ToDto(BacklogItem b) => new(

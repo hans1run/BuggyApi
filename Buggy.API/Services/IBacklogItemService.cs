@@ -11,4 +11,6 @@ public interface IBacklogItemService
     Task<BacklogItemDto?> UpdateAsync(Guid projectId, int itemNumber, UpdateBacklogItemDto dto);
     Task<BacklogItemDto?> UpdateStatusAsync(Guid projectId, int itemNumber, UpdateStatusDto dto);
     Task<bool> ArchiveAsync(Guid projectId, int itemNumber);
+    Task<List<BacklogItemDto>> GetArchivedByProjectAsync(Guid projectId);
+    Task<BacklogItemDto?> UnarchiveAsync(Guid projectId, int itemNumber);
 }

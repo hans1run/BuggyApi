@@ -2,6 +2,8 @@ using Buggy.API.Data;
 using Buggy.API.Extensions;
 using Buggy.API.Services;
 using Microsoft.EntityFrameworkCore;
+using Minio;
+using Minio.DataModel.Args;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,21 +35,37 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// CORS: environment-based
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+        else
+        {
+            policy.WithOrigins("https://buggy.wplan.no")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
     });
 });
+
+// Health checks
+builder.Services.AddHealthChecks()
+    .AddNpgSql(builder.Configuration.GetConnectionString("DefaultConnection")!);
 
 builder.Services.AddAuth0Authentication(builder.Configuration);
 builder.Services.AddBlobStorageService(builder.Configuration);
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IBacklogItemService, BacklogItemService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
+builder.Services.AddScoped<IAttachmentService, AttachmentService>();
 
 var app = builder.Build();
 
@@ -58,14 +76,34 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
+// Auto-create MinIO bucket on startup
+try
+{
+    using var scope = app.Services.CreateScope();
+    var minio = scope.ServiceProvider.GetRequiredService<IMinioClient>();
+    var bucketName = app.Configuration["Storage:BucketName"] ?? "buggy-attachments";
+    var exists = await minio.BucketExistsAsync(new BucketExistsArgs().WithBucket(bucketName));
+    if (!exists)
+    {
+        await minio.MakeBucketAsync(new MakeBucketArgs().WithBucket(bucketName));
+        Log.Information("Created MinIO bucket: {BucketName}", bucketName);
+    }
+}
+catch (Exception ex)
+{
+    Log.Warning(ex, "Failed to auto-create MinIO bucket (storage may be unavailable)");
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+app.UseSerilogRequestLogging();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health").AllowAnonymous();
 app.Run();

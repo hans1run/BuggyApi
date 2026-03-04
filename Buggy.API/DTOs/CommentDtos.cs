@@ -1,4 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Buggy.API.DTOs;
 
 public record CommentDto(Guid Id, Guid BacklogItemId, string Text, string CreatedBy, DateTime CreatedDate);
-public record CreateCommentDto(string Text);
+public record CreateCommentDto([property: Required, MaxLength(4000)] string Text);

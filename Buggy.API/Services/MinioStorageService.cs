@@ -48,7 +48,7 @@ public class MinioStorageService : IBlobStorageService
         _logger.LogInformation("Deleted {ObjectName} from {Bucket}", blobName, _bucketName);
     }
 
-    public async Task<string> GetPresignedUrlAsync(string blobName, int expirySeconds = 3600)
+    public async Task<string> GetPresignedUrlAsync(string blobName, int expirySeconds = IBlobStorageService.DefaultPresignedUrlExpirySeconds)
     {
         return await _minioClient.PresignedGetObjectAsync(new PresignedGetObjectArgs()
             .WithBucket(_bucketName)
