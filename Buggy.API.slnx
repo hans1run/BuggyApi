@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="Buggy.API.Tests/Buggy.API.Tests.csproj" />
   <Project Path="Buggy.API/Buggy.API.csproj" />
 </Solution>

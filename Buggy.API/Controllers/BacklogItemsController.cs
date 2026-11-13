@@ -34,9 +34,10 @@ public class BacklogItemsController : ControllerBase
     [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     public async Task<ActionResult<BacklogItemDto>> Create(Guid projectId, CreateBacklogItemDto dto)
     {
-        var createdBy = User.GetDisplayName();
-        var item = await _service.CreateAsync(projectId, dto, createdBy);
-        return CreatedAtAction(nameof(GetByNumber), new { projectId, itemNumber = item.ItemNumber }, item);
+        var result = await _service.CreateAsync(projectId, dto, User.GetDisplayName());
+        return result.Error == ItemError.None
+            ? CreatedAtAction(nameof(GetByNumber), new { projectId, itemNumber = result.Value!.ItemNumber }, result.Value)
+            : ToActionResult(result);
     }
 
     [HttpPut("{itemNumber:int}")]
@@ -47,11 +48,30 @@ public class BacklogItemsController : ControllerBase
     }
 
     [HttpPut("{itemNumber:int}/status")]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     public async Task<ActionResult<BacklogItemDto>> UpdateStatus(Guid projectId, int itemNumber, UpdateStatusDto dto)
     {
         var item = await _service.UpdateStatusAsync(projectId, itemNumber, dto);
         return item == null ? NotFound() : Ok(item);
     }
+
+    [HttpGet("{itemNumber:int}/subtasks")]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
+    public async Task<ActionResult<List<BacklogItemDto>>> GetSubtasks(Guid projectId, int itemNumber)
+    {
+        var subtasks = await _service.GetSubtasksAsync(projectId, itemNumber);
+        return subtasks == null ? NotFound() : Ok(subtasks);
+    }
+
+    [HttpPut("{itemNumber:int}/parent")]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
+    public async Task<ActionResult<BacklogItemDto>> SetParent(Guid projectId, int itemNumber, SetParentDto dto) =>
+        ToActionResult(await _service.SetParentAsync(projectId, itemNumber, dto));
+
+    [HttpPut("{itemNumber:int}/subtasks/order")]
+    public async Task<ActionResult<List<BacklogItemDto>>> ReorderSubtasks(
+        Guid projectId, int itemNumber, ReorderSubtasksDto dto) =>
+        ToActionResult(await _service.ReorderSubtasksAsync(projectId, itemNumber, dto));
 
     [HttpPut("{itemNumber:int}/archive")]
     public async Task<IActionResult> Archive(Guid projectId, int itemNumber) =>
@@ -67,4 +87,12 @@ public class BacklogItemsController : ControllerBase
         var item = await _service.UnarchiveAsync(projectId, itemNumber);
         return item == null ? NotFound() : Ok(item);
     }
+
+    private ActionResult<T> ToActionResult<T>(ItemResult<T> result) => result.Error switch
+    {
+        ItemError.None => Ok(result.Value),
+        ItemError.NotFound when result.Message != null => NotFound(new ProblemDetails { Title = result.Message }),
+        ItemError.NotFound => NotFound(),
+        _ => BadRequest(new ProblemDetails { Title = result.Message })
+    };
 }

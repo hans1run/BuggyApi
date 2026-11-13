@@ -32,6 +32,15 @@ public class BuggyDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.Entity<BacklogItem>()
             .HasIndex(b => b.Status);
 
+        // Subtasks: self-reference, one level deep (enforced in BacklogItemService).
+        // NoAction (checked at end of statement), so deleting a project can cascade
+        // to parents and subtasks together; Restrict would reject that mid-statement.
+        modelBuilder.Entity<BacklogItem>()
+            .HasOne(b => b.Parent)
+            .WithMany(b => b.Subtasks)
+            .HasForeignKey(b => b.ParentId)
+            .OnDelete(DeleteBehavior.NoAction);
+
         modelBuilder.Entity<BacklogItem>()
             .HasOne(b => b.Project)
             .WithMany(p => p.Items)

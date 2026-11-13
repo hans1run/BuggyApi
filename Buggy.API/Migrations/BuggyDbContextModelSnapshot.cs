@@ -105,6 +105,9 @@ namespace Buggy.API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ArchivedDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("AssignedTo")
                         .HasColumnType("text");
 
@@ -124,11 +127,17 @@ namespace Buggy.API.Migrations
                     b.Property<int>("ItemNumber")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Priority")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -147,6 +156,8 @@ namespace Buggy.API.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ParentId");
 
                     b.HasIndex("Status");
 
@@ -306,11 +317,18 @@ namespace Buggy.API.Migrations
 
             modelBuilder.Entity("Buggy.API.Models.BacklogItem", b =>
                 {
+                    b.HasOne("Buggy.API.Models.BacklogItem", "Parent")
+                        .WithMany("Subtasks")
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Buggy.API.Models.Project", "Project")
                         .WithMany("Items")
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Parent");
 
                     b.Navigation("Project");
                 });
@@ -331,6 +349,8 @@ namespace Buggy.API.Migrations
                     b.Navigation("Attachments");
 
                     b.Navigation("Comments");
+
+                    b.Navigation("Subtasks");
                 });
 
             modelBuilder.Entity("Buggy.API.Models.Project", b =>

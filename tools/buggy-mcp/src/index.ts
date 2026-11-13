@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// MCP server exposing Buggy (projects, items, comments) as tools.
+// MCP server exposing Buggy (projects, items, subtasks, comments) as tools.
 // Config: BUGGY_API_KEY (required, created under Manage users > API keys)
 //         BUGGY_URL     (default https://buggy.wplan.no)
 
@@ -22,7 +22,7 @@ if (!apiKey) {
 }
 const client = new BuggyClient((process.env.BUGGY_URL ?? 'https://buggy.wplan.no').replace(/\/+$/, ''), apiKey)
 
-const server = new McpServer({ name: 'buggy', version: '1.0.0' })
+const server = new McpServer({ name: 'buggy', version: '1.1.0' })
 
 type ToolResult = { content: { type: 'text'; text: string }[]; isError?: boolean }
 
@@ -38,7 +38,9 @@ async function run(body: () => Promise<string>): Promise<ToolResult> {
 
 function summary(item: Item): string {
   const assignee = item.assignedTo ? ` → ${item.assignedTo}` : ''
-  return `#${item.itemNumber} [${item.type} | ${item.status} | ${item.priority}] ${item.title}${assignee}`
+  const parent = item.parentNumber !== null ? ` (subtask of #${item.parentNumber})` : ''
+  const subtasks = item.subtaskCount > 0 ? ` [subtasks ${item.subtaskDoneCount}/${item.subtaskCount} done]` : ''
+  return `#${item.itemNumber} [${item.type} | ${item.status} | ${item.priority}] ${item.title}${assignee}${parent}${subtasks}`
 }
 
 const projectArg = z.string().min(1).describe('Project name (case-insensitive) or id')
@@ -103,7 +105,7 @@ server.registerTool(
   'buggy_get_item',
   {
     title: 'Get a Buggy item',
-    description: 'Gets one item with its full description, tags and comments.',
+    description: 'Gets one item with its full description, tags, parent, subtasks and comments.',
     inputSchema: { project: projectArg, number: numberArg },
     annotations: { readOnlyHint: true }
   },
@@ -112,15 +114,21 @@ server.registerTool(
       const p = await client.resolveProject(project)
       const item = await client.getItem(p.id, number)
       const comments = item.commentCount > 0 ? await client.listComments(item.id) : []
+      const subtasks = item.subtaskCount > 0 ? await client.listSubtasks(p.id, item.itemNumber) : []
       const lines = [
         summary(item),
         `Project: ${p.name}`,
         `Created by ${item.createdBy} on ${item.createdDate}` +
           (item.updatedDate ? `, updated ${item.updatedDate}` : '')
       ]
+      if (item.parentNumber !== null) lines.push(`Subtask of #${item.parentNumber} "${item.parentTitle}"`)
       if (item.tags.length) lines.push(`Tags: ${item.tags.join(', ')}`)
       if (item.attachmentCount) lines.push(`Attachments: ${item.attachmentCount} (view in Buggy)`)
       lines.push(`Link: ${client.itemUrl(item)}`, '', 'Description:', item.description?.trim() || '(none)')
+      if (subtasks.length) {
+        lines.push('', `Subtasks (${item.subtaskDoneCount}/${item.subtaskCount} done):`)
+        for (const s of subtasks) lines.push(`- [${s.status === 'Done' ? 'x' : ' '}] ${summary(s)}`)
+      }
       if (comments.length) {
         lines.push('', `Comments (${comments.length}):`)
         for (const c of comments) lines.push(`- ${c.createdBy}, ${c.createdDate}: ${c.text}`)
@@ -135,6 +143,7 @@ server.registerTool(
     title: 'Create a Buggy item',
     description:
       'Creates a bug, feature or task in a project and returns its number and link. ' +
+      'Give parent to create it as a subtask of that item (subtasks are one level deep). ' +
       'assignedTo must be an existing Buggy user (see buggy_list_members); never invent one.',
     inputSchema: {
       project: projectArg,
@@ -144,11 +153,12 @@ server.registerTool(
       priority: z.enum(PRIORITIES).default('None'),
       status: z.enum(STATUSES).default('Backlog').describe('Board column to put the item in'),
       assignedTo: z.string().optional().describe('Display name of an existing Buggy user'),
-      tags: z.array(z.string().min(1).max(50)).max(20).optional()
+      tags: z.array(z.string().min(1).max(50)).max(20).optional(),
+      parent: numberArg.optional().describe('Create as a subtask of this item number, e.g. 12 for #12')
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false }
   },
-  ({ project, title, description, type, priority, status, assignedTo, tags }) =>
+  ({ project, title, description, type, priority, status, assignedTo, tags, parent }) =>
     run(async () => {
       const p = await client.resolveProject(project)
       const assignee = assignedTo ? await client.resolveMember(assignedTo) : undefined
@@ -159,7 +169,8 @@ server.registerTool(
         priority,
         status,
         assignedTo: assignee,
-        tags
+        tags,
+        parentNumber: parent
       })
       return `Created ${summary(item)} in "${p.name}".\nLink: ${client.itemUrl(item)}`
     })
@@ -183,6 +194,54 @@ server.registerTool(
       const item = await client.getItem(p.id, number)
       await client.addComment(item.id, text)
       return `Comment added to #${item.itemNumber} "${item.title}".\nLink: ${client.itemUrl(item)}`
+    })
+)
+
+server.registerTool(
+  'buggy_set_status',
+  {
+    title: 'Set the status of a Buggy item',
+    description:
+      'Moves an item (or subtask) to another board column. Use status Done to tick off a subtask.',
+    inputSchema: {
+      project: projectArg,
+      number: numberArg,
+      status: z.enum(STATUSES).describe('New status')
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true }
+  },
+  ({ project, number, status }) =>
+    run(async () => {
+      const p = await client.resolveProject(project)
+      const item = await client.setStatus(p.id, number, status)
+      return `Updated ${summary(item)}.\nLink: ${client.itemUrl(item)}`
+    })
+)
+
+server.registerTool(
+  'buggy_set_parent',
+  {
+    title: 'Make a Buggy item a subtask, or detach it',
+    description:
+      'Makes an existing item a subtask of another item, or a normal item again when parent is null. ' +
+      'Subtasks are one level deep: the parent cannot itself be a subtask, and an item with subtasks cannot become one.',
+    inputSchema: {
+      project: projectArg,
+      number: numberArg,
+      parent: z
+        .number()
+        .int()
+        .positive()
+        .nullable()
+        .describe('Item number of the new parent, or null to detach')
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true }
+  },
+  ({ project, number, parent }) =>
+    run(async () => {
+      const p = await client.resolveProject(project)
+      const item = await client.setParent(p.id, number, parent)
+      return `Updated ${summary(item)}.\nLink: ${client.itemUrl(item)}`
     })
 )
 

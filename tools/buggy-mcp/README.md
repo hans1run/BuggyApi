@@ -6,10 +6,12 @@ MCP server that lets Claude (Claude Code, Claude Desktop, any MCP client) read a
 |---|---|
 | `buggy_list_projects` | Active projects |
 | `buggy_list_members` | User display names (valid assignees) |
-| `buggy_list_items` | Items in a project, filterable by status, type, assignee |
-| `buggy_get_item` | One item with description and comments |
-| `buggy_create_item` | Create a bug/feature/task; assignee must be an existing user |
+| `buggy_list_items` | Items in a project, filterable by status, type, assignee; subtasks show their parent |
+| `buggy_get_item` | One item with description, parent, subtasks and comments |
+| `buggy_create_item` | Create a bug/feature/task, optionally as a subtask; assignee must be an existing user |
 | `buggy_add_comment` | Comment on an item |
+| `buggy_set_status` | Move an item to another column; `Done` ticks off a subtask |
+| `buggy_set_parent` | Make an item a subtask of another, or detach it |
 
 The first four are marked read-only. Projects are given by name (case-insensitive) and items by number (`12` for `#12`).
 
@@ -36,6 +38,7 @@ New Claude Code sessions then have the `buggy_*` tools.
 
 ## What a key can do
 
-Read projects, items, comments and user names; create items; add comments; upload attachments.
-It cannot change or archive items, create projects, or manage users or keys. Revoke a key under
+Read projects, items, subtasks, comments and user names; create items and subtasks; change an
+item's status; make an item a subtask or detach it; add comments; upload attachments.
+It cannot edit an item's text, type, priority or assignee, archive items, create projects, or manage users or keys. Revoke a key under
 **Manage users → API keys**; it stops working immediately.

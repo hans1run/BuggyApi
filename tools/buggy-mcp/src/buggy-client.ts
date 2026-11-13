@@ -33,6 +33,14 @@ export interface Item {
   tags: string[]
   commentCount: number
   attachmentCount: number
+  /** Set when the item is a subtask (one level deep). */
+  parentId: string | null
+  parentNumber: number | null
+  parentTitle: string | null
+  sortOrder: number
+  /** Non-archived subtasks, and how many of them are Done. */
+  subtaskCount: number
+  subtaskDoneCount: number
 }
 
 export interface Comment {
@@ -50,6 +58,8 @@ export interface NewItem {
   status: Status
   assignedTo?: string
   tags?: string[]
+  /** Create the item as a subtask of this item number. */
+  parentNumber?: number
 }
 
 /** An error message meant to be shown to the model as-is. */
@@ -71,6 +81,18 @@ export class BuggyClient {
 
   createItem = (projectId: string, item: NewItem) =>
     this.request<Item>('POST', `/api/projects/${projectId}/items`, item)
+
+  listSubtasks = (projectId: string, itemNumber: number) =>
+    this.request<Item[]>('GET', `/api/projects/${projectId}/items/${itemNumber}/subtasks`)
+
+  setStatus = (projectId: string, itemNumber: number, status: Status) =>
+    this.request<Item>('PUT', `/api/projects/${projectId}/items/${itemNumber}/status`, { status },
+      `There is no item #${itemNumber} in this project.`)
+
+  /** Makes the item a subtask of parentNumber, or a normal item when parentNumber is null. */
+  setParent = (projectId: string, itemNumber: number, parentNumber: number | null) =>
+    this.request<Item>('PUT', `/api/projects/${projectId}/items/${itemNumber}/parent`, { parentNumber },
+      `There is no item #${itemNumber} in this project.`)
 
   listComments = (itemId: string) => this.request<Comment[]>('GET', `/api/items/${itemId}/comments`)
 

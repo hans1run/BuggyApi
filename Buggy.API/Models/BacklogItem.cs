@@ -15,8 +15,18 @@ public abstract class BacklogItem
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedDate { get; set; }
     public bool IsArchived { get; set; }
+    /// <summary>When the item was archived; subtasks archived with their parent share the parent's value.</summary>
+    public DateTime? ArchivedDate { get; set; }
     public string? Tags { get; set; }
+
+    /// <summary>Set when this item is a subtask. Only one level: a parent never has a parent itself.</summary>
+    public Guid? ParentId { get; set; }
+    /// <summary>Position among the parent's subtasks (ascending). Unused for top-level items.</summary>
+    public int SortOrder { get; set; }
+
     public Project Project { get; set; } = null!;
+    public BacklogItem? Parent { get; set; }
+    public ICollection<BacklogItem> Subtasks { get; set; } = new List<BacklogItem>();
     public ICollection<Comment> Comments { get; set; } = new List<Comment>();
     public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
 }
