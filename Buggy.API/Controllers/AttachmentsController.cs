@@ -1,4 +1,5 @@
 using Buggy.API.DTOs;
+using Buggy.API.Extensions;
 using Buggy.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Buggy.API.Controllers;
 
 [ApiController]
-[Authorize(Policy = "SingleUser")]
+[Authorize]
 public class AttachmentsController : ControllerBase
 {
     private readonly IAttachmentService _service;
@@ -25,7 +26,7 @@ public class AttachmentsController : ControllerBase
         Ok(await _service.GetByItemAsync(itemId));
 
     [HttpPost("api/items/{itemId:guid}/attachments")]
-    [Authorize(Policy = "ApiKeyOrSingleUser")]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<ActionResult<AttachmentDto>> Upload(Guid itemId, IFormFile file)
     {

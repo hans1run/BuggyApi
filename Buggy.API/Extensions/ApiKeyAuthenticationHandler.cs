@@ -37,10 +37,10 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
         if (!string.Equals(apiKey, configuredKey, StringComparison.Ordinal))
             return Task.FromResult(AuthenticateResult.Fail("Invalid API key"));
 
-        var allowedUserId = _configuration["Auth0:AllowedUserId"] ?? "apikey-user";
         var claims = new[]
         {
-            new Claim("sub", allowedUserId),
+            new Claim(AuthExtensions.SubClaim, "api-key"),
+            new Claim(AuthExtensions.NameClaim, "API"),
             new Claim(ClaimTypes.AuthenticationMethod, "apikey")
         };
         var identity = new ClaimsIdentity(claims, Scheme.Name);

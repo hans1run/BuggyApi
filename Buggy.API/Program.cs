@@ -1,6 +1,7 @@
 using Buggy.API.Data;
 using Buggy.API.Extensions;
 using Buggy.API.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Minio;
 using Minio.DataModel.Args;
@@ -65,7 +66,18 @@ builder.Services.AddCors(options =>
 builder.Services.AddHealthChecks()
     .AddNpgSql(builder.Configuration.GetConnectionString("DefaultConnection")!);
 
-builder.Services.AddAuth0Authentication(builder.Configuration);
+// The API is only reachable through Caddy on the Docker network, so trust the
+// X-Forwarded-For hop Caddy appends (needed for per-IP login rate limiting).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+builder.Services.AddBuggyAuthentication(builder.Environment);
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddBlobStorageService(builder.Configuration);
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IBacklogItemService, BacklogItemService>();
@@ -79,6 +91,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<BuggyDbContext>();
     db.Database.Migrate();
+
+    var users = scope.ServiceProvider.GetRequiredService<IUserService>();
+    await users.EnsureBootstrapAdminAsync(app.Configuration);
 }
 
 // Auto-create MinIO bucket on startup
@@ -105,10 +120,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseForwardedHeaders();
 app.UseSerilogRequestLogging();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.MapControllers();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.Run();

@@ -6,9 +6,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Host=buggy-postgres;Port=5432;Database=buggy;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
-      - Auth0__Domain=${AUTH0_DOMAIN}
-      - Auth0__Audience=${AUTH0_AUDIENCE}
-      - Auth0__AllowedUserId=${AUTH0_ALLOWED_USER_ID}
       - Storage__Endpoint=buggy-minio:9000
       - Storage__AccessKey=${MINIO_ACCESS_KEY}
       - Storage__SecretKey=${MINIO_SECRET_KEY}

@@ -1,4 +1,5 @@
 using Buggy.API.DTOs;
+using Buggy.API.Extensions;
 using Buggy.API.Models;
 using Buggy.API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace Buggy.API.Controllers;
 
 [ApiController]
 [Route("api/projects/{projectId:guid}/items")]
-[Authorize(Policy = "SingleUser")]
+[Authorize]
 public class BacklogItemsController : ControllerBase
 {
     private readonly IBacklogItemService _service;
@@ -28,10 +29,10 @@ public class BacklogItemsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "ApiKeyOrSingleUser")]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     public async Task<ActionResult<BacklogItemDto>> Create(Guid projectId, CreateBacklogItemDto dto)
     {
-        var createdBy = User.FindFirst("sub")?.Value ?? "unknown";
+        var createdBy = User.GetDisplayName();
         var item = await _service.CreateAsync(projectId, dto, createdBy);
         return CreatedAtAction(nameof(GetByNumber), new { projectId, itemNumber = item.ItemNumber }, item);
     }

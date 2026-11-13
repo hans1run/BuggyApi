@@ -7,7 +7,7 @@ namespace Buggy.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = "SingleUser")]
+[Authorize]
 public class ProjectsController : ControllerBase
 {
     private readonly IProjectService _service;

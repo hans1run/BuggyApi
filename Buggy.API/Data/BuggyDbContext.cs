@@ -1,9 +1,10 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Buggy.API.Models;
 
 namespace Buggy.API.Data;
 
-public class BuggyDbContext : DbContext
+public class BuggyDbContext : DbContext, IDataProtectionKeyContext
 {
     public BuggyDbContext(DbContextOptions<BuggyDbContext> options) : base(options) { }
 
@@ -11,6 +12,8 @@ public class BuggyDbContext : DbContext
     public DbSet<BacklogItem> BacklogItems => Set<BacklogItem>();
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,5 +48,13 @@ public class BuggyDbContext : DbContext
             .WithMany(b => b.Attachments)
             .HasForeignKey(a => a.BacklogItemId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<User>(u =>
+        {
+            u.HasIndex(x => x.Email).IsUnique();
+            u.Property(x => x.Email).HasMaxLength(256);
+            u.Property(x => x.DisplayName).HasMaxLength(100);
+            u.Property(x => x.SecurityStamp).HasMaxLength(64);
+        });
     }
 }
