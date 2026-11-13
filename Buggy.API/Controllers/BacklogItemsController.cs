@@ -17,11 +17,13 @@ public class BacklogItemsController : ControllerBase
     public BacklogItemsController(IBacklogItemService service) => _service = service;
 
     [HttpGet]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     public async Task<ActionResult<List<BacklogItemDto>>> GetAll(
         Guid projectId, [FromQuery] BacklogItemType? type, [FromQuery] Priority? priority) =>
         Ok(await _service.GetByProjectAsync(projectId, type, priority));
 
     [HttpGet("{itemNumber:int}")]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     public async Task<ActionResult<BacklogItemDto>> GetByNumber(Guid projectId, int itemNumber)
     {
         var item = await _service.GetByNumberAsync(projectId, itemNumber);

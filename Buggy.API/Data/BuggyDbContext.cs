@@ -13,6 +13,7 @@ public class BuggyDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -55,6 +56,16 @@ public class BuggyDbContext : DbContext, IDataProtectionKeyContext
             u.Property(x => x.Email).HasMaxLength(256);
             u.Property(x => x.DisplayName).HasMaxLength(100);
             u.Property(x => x.SecurityStamp).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<ApiKey>(k =>
+        {
+            k.HasIndex(x => x.Name).IsUnique();
+            k.HasIndex(x => x.KeyHash).IsUnique();
+            k.Property(x => x.Name).HasMaxLength(50);
+            k.Property(x => x.KeyHash).HasMaxLength(64);
+            k.Property(x => x.Prefix).HasMaxLength(16);
+            k.Property(x => x.CreatedBy).HasMaxLength(100);
         });
     }
 }

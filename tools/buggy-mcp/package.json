@@ -1,0 +1,25 @@
+{
+  "name": "buggy-mcp",
+  "version": "1.0.0",
+  "description": "MCP server that lets Claude read and create Buggy items",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "buggy-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.0",
+    "typescript": "5.9.3"
+  }
+}

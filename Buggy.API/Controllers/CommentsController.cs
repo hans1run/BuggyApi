@@ -16,10 +16,12 @@ public class CommentsController : ControllerBase
     public CommentsController(ICommentService service) => _service = service;
 
     [HttpGet]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     public async Task<ActionResult<List<CommentDto>>> GetAll(Guid itemId) =>
         Ok(await _service.GetByItemAsync(itemId));
 
     [HttpPost]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     public async Task<ActionResult<CommentDto>> Create(Guid itemId, CreateCommentDto dto)
     {
         var createdBy = User.GetDisplayName();

@@ -1,4 +1,5 @@
 using Buggy.API.DTOs;
+using Buggy.API.Extensions;
 using Buggy.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,10 +16,12 @@ public class ProjectsController : ControllerBase
     public ProjectsController(IProjectService service) => _service = service;
 
     [HttpGet]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     public async Task<ActionResult<List<ProjectDto>>> GetAll() =>
         Ok(await _service.GetAllAsync());
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = AuthExtensions.ApiKeyOrUserPolicy)]
     public async Task<ActionResult<ProjectDto>> GetById(Guid id)
     {
         var project = await _service.GetByIdAsync(id);

@@ -78,6 +78,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddBuggyAuthentication(builder.Environment);
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddBlobStorageService(builder.Configuration);
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IBacklogItemService, BacklogItemService>();
