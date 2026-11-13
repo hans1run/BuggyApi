@@ -2,7 +2,9 @@
 # Build buggy-mcp and register it with Claude Code, so Claude can read and create Buggy items.
 # Works in Git Bash on Windows, and on macOS/Linux.
 #
-# Usage:  ./install.sh          (asks for the API key from Buggy > Manage users > API keys)
+# Usage:  copy an API key in Buggy (Manage users > API keys), run the script and press Enter;
+#         the key is read from the clipboard. Or pass it: ./install.sh <key>
+#   From cmd:         "%LOCALAPPDATA%\Programs\Git\bin\bash.exe" C:/Development/source/buggy-api/tools/buggy-mcp/install.sh
 #   From PowerShell:  & "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe" C:/Development/source/buggy-api/tools/buggy-mcp/install.sh
 #
 # Optional environment variables:
@@ -40,12 +42,30 @@ if command -v cygpath >/dev/null; then SERVER_JS=$(cygpath -m "$SERVER_JS"); fi
 [ -f "$DIR/dist/index.js" ] || fail "Build did not produce dist/index.js."
 
 # --- API key ---------------------------------------------------------------
-if [ -z "${BUGGY_API_KEY:-}" ]; then
-  echo "Create a key in Buggy under Manage users > API keys (e.g. named \"Claude\")."
-  read -r -s -p "Paste the API key: " BUGGY_API_KEY; echo
+# Pasting into a hidden prompt does not work in every Windows console, so by default
+# the key is read from the clipboard: copy it in Buggy, then press Enter.
+read_clipboard() {
+  if [ -r /dev/clipboard ]; then cat /dev/clipboard                       # Git Bash / Cygwin
+  elif command -v powershell.exe >/dev/null; then powershell.exe -NoProfile -Command Get-Clipboard
+  elif command -v pbpaste >/dev/null; then pbpaste                         # macOS
+  elif command -v xclip >/dev/null; then xclip -selection clipboard -o
+  fi 2>/dev/null || true
+}
+
+BUGGY_API_KEY="${1:-${BUGGY_API_KEY:-}}"
+if [ -z "$BUGGY_API_KEY" ]; then
+  echo "Create a key in Buggy under Manage users > API keys (e.g. named \"Claude\") and copy it."
+  read -r -s -p "Press Enter to use the key from the clipboard (or paste it, then Enter): " BUGGY_API_KEY; echo
+  if [ -z "$BUGGY_API_KEY" ]; then
+    BUGGY_API_KEY=$(read_clipboard)
+  fi
 fi
 BUGGY_API_KEY="${BUGGY_API_KEY//[[:space:]]/}"
-[ -n "$BUGGY_API_KEY" ] || fail "No API key given."
+[ -n "$BUGGY_API_KEY" ] || fail "No API key: the clipboard was empty. Copy the key in Buggy and run again, or pass it as an argument: install.sh <key>"
+case "$BUGGY_API_KEY" in
+  bgy_*) echo "    Using key ${BUGGY_API_KEY:0:12}... (${#BUGGY_API_KEY} characters)" ;;
+  *)     fail "That does not look like a Buggy API key (they start with bgy_). Copy the key again and rerun." ;;
+esac
 
 echo "==> Checking the key against $BUGGY_URL"
 STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -H "X-Api-Key: $BUGGY_API_KEY" "$BUGGY_URL/api/projects" || true)
