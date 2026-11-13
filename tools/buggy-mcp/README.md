@@ -16,21 +16,23 @@ The first four are marked read-only. Projects are given by name (case-insensitiv
 ## Setup
 
 1. In Buggy, open **Manage users → API keys → New key**, name it (e.g. `Claude`; the name is shown as the author of what it creates) and copy the key.
-2. Build the server once (and again after pulling changes):
+2. Run the installer and paste the key when asked. It builds the server, checks the key against Buggy,
+   registers the server for all your Claude Code sessions and checks that Claude Code can start it.
 
    ```bash
-   cd tools/buggy-mcp
-   npm install
-   npm run build
+   ./install.sh
    ```
 
-3. Register it for all your Claude Code sessions:
+   On Windows, run it in Git Bash, or from PowerShell:
 
-   ```bash
-   claude mcp add buggy --scope user -e BUGGY_API_KEY=<key> -- node C:/Development/source/buggy-api/tools/buggy-mcp/dist/index.js
+   ```powershell
+   & "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe" C:/Development/source/buggy-api/tools/buggy-mcp/install.sh
    ```
 
-   `BUGGY_URL` defaults to `https://buggy.wplan.no`; pass `-e BUGGY_URL=http://localhost:5244` to use a local API.
+   Run it again to replace the key or pick up code changes. `BUGGY_URL` (default `https://buggy.wplan.no`),
+   `MCP_NAME` (default `buggy`) and `MCP_SCOPE` (default `user`) can be set as environment variables.
+
+New Claude Code sessions then have the `buggy_*` tools.
 
 ## What a key can do
 
